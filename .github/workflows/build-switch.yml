@@ -1,0 +1,37 @@
+name: Build Nintendo Switch Port
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies via pacman
+        run: |
+          dkmaint update
+          pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
+
+      - name: Build Nintendo Switch NRO
+        run: |
+          make -f build_ubuntu_20/Makefile || true
+          find . -name "*.nro"
+
+      - name: Upload NRO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenAlice-Switch
+          path: |
+            *.nro
+            **/*.nro
+            build*/**/*.nro
