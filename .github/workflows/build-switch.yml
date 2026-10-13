@@ -17,8 +17,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies via pacman
+      - name: Install host and switch dependencies
         run: |
+          apt-get update && apt-get install -y g++ build-essential wget unzip || true
+          ln -sf /usr/bin/g++ /usr/bin/g++-8
+          ln -sf /usr/bin/gcc /usr/bin/gcc-8
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
 
