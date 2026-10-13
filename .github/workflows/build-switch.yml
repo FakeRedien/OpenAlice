@@ -19,7 +19,6 @@ jobs:
 
       - name: Install dependencies via pacman
         run: |
-          dkmaint update
           pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
 
       - name: Build Nintendo Switch NRO
