@@ -1,4 +1,4 @@
-name: Build OpenAlice Linux Port
+name: Build Nintendo Switch Port
 
 on:
   push:
@@ -11,40 +11,78 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04
+      image: devkitpro/devkita64:latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Switch Dependencies
         run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update && apt-get install -y g++-8 make wget unzip libsfml-dev build-essential
+          export PATH=/opt/devkitpro/pacman/bin:$PATH
+          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || true
 
-      - name: Fix Makefile and Build
+      - name: Create Switch Makefile and Build
         run: |
-          cd build_ubuntu_20
+          export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:$PATH
           
-          # Reemplazar comando 'del' por 'rm -f' compatible con Linux
-          sed -i 's/del /rm -f /g' Makefile
-          
-          # Apuntar las rutas de SFML a las librerías instaladas en el sistema
-          sed -i 's|~/Downloads/SFML-2.5.1/include|/usr/include|g' Makefile
-          sed -i 's|~/Downloads/SFML-2.5.1/lib|/usr/lib/x86_64-linux-gnu|g' Makefile
+          # Crear el Makefile optimizado para Nintendo Switch
+          cat << 'MAKEOFF' > Makefile.switch
+          TARGET		:= open_alice
+          SOURCES		:= code code/screens code/screens/subscreens code/tests
+          INCLUDES	:= code /opt/devkitpro/libnx/include
+          LIBS		:= -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
 
-          # Compilar el proyecto
-          make
+          PREFIX		:= aarch64-none-elf-
+          CC		:= $(PREFIX)gcc
+          CXX		:= $(PREFIX)g++
+          LD		:= $(PREFIX)g++
+          STRIP		:= $(PREFIX)strip
+          ELF2NRO		:= elf2nro
 
-      - name: Collect Binary
-        run: |
+          ARCH		:= -march=armv8-a+crc+crypto -mtune=cortex-a57 -ftree-vectorize -fPIE
+
+          CFLAGS		:= -g -Wall -O3 -ffunction-sections $(ARCH) $(foreach dir,$(INCLUDES),-I$(dir))
+          CXXFLAGS	:= $(CFLAGS) -std=c++17 -D__SWITCH__ -DSDLSWITCH
+          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections
+
+          CPPFILES	:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.cpp))
+          CFILES		:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.c))
+          OFILES		:= $(notdir $(CPPFILES:.cpp=.o) $(CFILES:.c=.o))
+
+          VPATH		:= $(SOURCES)
+
+          all: $(TARGET).nro
+
+          $(TARGET).nro: $(TARGET).elf
+          	$(ELF2NRO) $< $@
+
+          $(TARGET).elf: $(OFILES)
+          	$(LD) $(LDFLAGS) $(OFILES) $(LIBS) -o $@
+          	$(STRIP) -s $@
+
+          %.o: %.cpp
+          	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+          %.o: %.c
+          	$(CC) $(CFLAGS) -c $< -o $@
+
+          clean:
+          	rm -f *.o $(TARGET).elf $(TARGET).nro
+          MAKEOFF
+
+          # Ejecutar la compilación para la Switch
+          make -f Makefile.switch
+
+          # Preparar la salida
           mkdir -p final_output
-          cp build_ubuntu_20/alice_game final_output/
+          cp open_alice.nro final_output/
+          cp open_alice.elf final_output/
           ls -la final_output/
 
-      - name: Upload Binary Artifact
+      - name: Upload Switch NRO Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Linux-Binary
+          name: OpenAlice-Switch-NRO
           path: final_output/
           if-no-files-found: error
