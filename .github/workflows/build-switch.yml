@@ -26,13 +26,15 @@ jobs:
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:$PATH
           make -f build_ubuntu_20/Makefile || true
-          find . -name "*.nro"
+
+      - name: Prepare Artifacts Directory
+        run: |
+          mkdir -p output_nro
+          find . -maxdepth 4 -type f \( -iname "*.nro" -o -iname "*.elf" \) -exec cp {} output_nro/ \;
 
       - name: Upload NRO Artifact
         uses: actions/upload-artifact@v4
         with:
           name: OpenAlice-Switch
-          path: |
-            *.nro
-            **/*.nro
-            build*/**/*.nro
+          path: output_nro/
+          if-no-files-found: warn
