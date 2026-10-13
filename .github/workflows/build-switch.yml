@@ -1,4 +1,4 @@
-name: Build Nintendo Switch Port
+name: Build OpenAlice Linux Port
 
 on:
   push:
@@ -11,34 +11,40 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: devkitpro/devkita64:latest
+      image: ubuntu:20.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Switch Environment
+      - name: Install dependencies
         run: |
-          export PATH=/opt/devkitpro/pacman/bin:$PATH
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf || true
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y g++-8 make wget unzip libsfml-dev build-essential
 
-      - name: Compile and Show Errors
+      - name: Fix Makefile and Build
         run: |
-          export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:$PATH
           cd build_ubuntu_20
           
-          # Limpiar compilaciones anteriores
-          make clean || true
+          # Reemplazar comando 'del' por 'rm -f' compatible con Linux
+          sed -i 's/del /rm -f /g' Makefile
           
-          # Intentar compilar mostrando la salida completa para depurar
-          make CXX=aarch64-none-elf-g++ CC=aarch64-none-elf-gcc
+          # Apuntar las rutas de SFML a las librerías instaladas en el sistema
+          sed -i 's|~/Downloads/SFML-2.5.1/include|/usr/include|g' Makefile
+          sed -i 's|~/Downloads/SFML-2.5.1/lib|/usr/lib/x86_64-linux-gnu|g' Makefile
 
-      - name: Upload NRO Artifact if exists
+          # Compilar el proyecto
+          make
+
+      - name: Collect Binary
+        run: |
+          mkdir -p final_output
+          cp build_ubuntu_20/alice_game final_output/
+          ls -la final_output/
+
+      - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Switch
-          path: |
-            build_ubuntu_20/*.nro
-            build_ubuntu_20/*.elf
-            build_ubuntu_20/alice_game
-          if-no-files-found: warn
+          name: OpenAlice-Linux-Binary
+          path: final_output/
+          if-no-files-found: error
