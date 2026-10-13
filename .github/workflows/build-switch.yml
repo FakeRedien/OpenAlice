@@ -17,18 +17,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Switch Dependencies
+      - name: Install Switch Dependencies and SFML Headers
         run: |
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || true
-
-      - name: Patch Source Files for Switch / SDL2 Compatibility
-        run: |
-          # Reemplazar los includes de SFML por las adaptaciones o SDL2 en todos los archivos .cpp y .h
-          find code/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -exec sed -i 's|#include <SFML/Graphics.hpp>|#include <SDL2/SDL.h>\n#include <SDL2/SDL_image.h>|g' {} +
-          find code/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -exec sed -i 's|#include <SFML/Window.hpp>|#include <SDL2/SDL.h>|g' {} +
-          find code/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -exec sed -i 's|#include <SFML/System.hpp>|#include <SDL2/SDL.h>|g' {} +
-          find code/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -exec sed -i 's|#include <SFML/Audio.hpp>|#include <SDL2/SDL_mixer.h>|g' {} +
+          
+          # Descargar los headers de SFML y parchar Config.hpp para soportar la Switch
+          apt-get update && apt-get install -y wget unzip
+          wget -q https://github.com/SFML/SFML/archive/refs/tags/2.5.1.zip -O sfml.zip
+          unzip -q sfml.zip
+          mkdir -p sfml_include
+          cp -r SFML-2.5.1/include/* sfml_include/
+          
+          # Forzar a SFML a aceptar la arquitectura de la consola en su archivo de configuración
+          sed -i 's/#error This operating system is not supported/#define SFML_SYSTEM_UNIX\n#define SFML_NO_DEPRECATED_WARNINGS/g' sfml_include/SFML/Config.hpp
 
       - name: Create Switch Makefile and Build
         run: |
@@ -37,7 +39,7 @@ jobs:
           cat << 'MAKEOFF' > Makefile.switch
           TARGET		:= open_alice
           SOURCES		:= code code/screens code/screens/subscreens code/tests
-          INCLUDES	:= code /opt/devkitpro/libnx/include /opt/devkitpro/portlibs/switch/include
+          INCLUDES	:= code sfml_include /opt/devkitpro/libnx/include /opt/devkitpro/portlibs/switch/include
           LIBS		:= -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
           LIBDIRS		:= /opt/devkitpro/portlibs/switch/lib
 
