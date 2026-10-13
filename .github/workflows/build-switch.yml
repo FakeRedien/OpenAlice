@@ -1,4 +1,4 @@
-name: Build Nintendo Switch Port
+name: Build Nintendo Switch Port with Resources
 
 on:
   push:
@@ -26,7 +26,6 @@ jobs:
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:$PATH
           
-          # Crear el Makefile optimizado para Nintendo Switch
           cat << 'MAKEOFF' > Makefile.switch
           TARGET		:= open_alice
           SOURCES		:= code code/screens code/screens/subscreens code/tests
@@ -71,18 +70,28 @@ jobs:
           	rm -f *.o $(TARGET).elf $(TARGET).nro
           MAKEOFF
 
-          # Ejecutar la compilación para la Switch
           make -f Makefile.switch
 
-          # Preparar la salida
-          mkdir -p final_output
-          cp open_alice.nro final_output/
-          cp open_alice.elf final_output/
-          ls -la final_output/
+      - name: Organize Game Folder Structure
+        run: |
+          # Crear la carpeta principal del juego que irá dentro de switch/ en la SD
+          mkdir -p switch_release/open_alice
+          
+          # Copiar el archivo ejecutable .nro
+          cp open_alice.nro switch_release/open_alice/
+          
+          # Copiar todas las carpetas de recursos necesarias (sprites, music, saves, etc.)
+          [ -d "sprites" ] && cp -r sprites switch_release/open_alice/
+          [ -d "music" ] && cp -r music switch_release/open_alice/
+          [ -d "saves" ] && cp -r saves switch_release/open_alice/
+          [ -d "code" ] && cp -r code switch_release/open_alice/
+          
+          # Listar contenido para verificar
+          ls -la switch_release/open_alice/
 
-      - name: Upload Switch NRO Artifact
+      - name: Upload Complete Switch Game Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Switch-NRO
-          path: final_output/
+          name: OpenAlice-Switch-Complete
+          path: switch_release/
           if-no-files-found: error
