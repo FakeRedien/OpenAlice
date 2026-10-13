@@ -1,4 +1,4 @@
-name: Build Native Nintendo Switch Port
+name: Build OpenAlice Linux Package
 
 on:
   push:
@@ -11,91 +11,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: devkitpro/devkita64:latest
+      image: ubuntu:20.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Switch Dependencies and SFML Headers
+      - name: Install Dependencies
         run: |
-          export PATH=/opt/devkitpro/pacman/bin:$PATH
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || true
-          
-          # Descargar los headers de SFML y parchar Config.hpp para soportar la Switch
-          apt-get update && apt-get install -y wget unzip
-          wget -q https://github.com/SFML/SFML/archive/refs/tags/2.5.1.zip -O sfml.zip
-          unzip -q sfml.zip
-          mkdir -p sfml_include
-          cp -r SFML-2.5.1/include/* sfml_include/
-          
-          # Forzar a SFML a aceptar la arquitectura de la consola en su archivo de configuración
-          sed -i 's/#error This operating system is not supported/#define SFML_SYSTEM_UNIX\n#define SFML_NO_DEPRECATED_WARNINGS/g' sfml_include/SFML/Config.hpp
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y g++-8 make wget unzip libsfml-dev build-essential
 
-      - name: Create Switch Makefile and Build
+      - name: Fix Makefile and Build
         run: |
-          export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:$PATH
+          cd build_ubuntu_20
           
-          cat << 'MAKEOFF' > Makefile.switch
-          TARGET		:= open_alice
-          SOURCES		:= code code/screens code/screens/subscreens code/tests
-          INCLUDES	:= code sfml_include /opt/devkitpro/libnx/include /opt/devkitpro/portlibs/switch/include
-          LIBS		:= -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
-          LIBDIRS		:= /opt/devkitpro/portlibs/switch/lib
+          # Corregir comandos incompatibles y rutas de SFML
+          sed -i 's/del /rm -f /g' Makefile
+          sed -i 's|~/Downloads/SFML-2.5.1/include|/usr/include|g' Makefile
+          sed -i 's|~/Downloads/SFML-2.5.1/lib|/usr/lib/x86_64-linux-gnu|g' Makefile
 
-          PREFIX		:= aarch64-none-elf-
-          CC		:= $(PREFIX)gcc
-          CXX		:= $(PREFIX)g++
-          LD		:= $(PREFIX)g++
-          STRIP		:= $(PREFIX)strip
-          ELF2NRO		:= elf2nro
+          # Compilar el juego
+          make
 
-          ARCH		:= -march=armv8-a+crc+crypto -mtune=cortex-a57 -ftree-vectorize -fPIE
-
-          CFLAGS		:= -g -Wall -O3 -ffunction-sections $(ARCH) $(foreach dir,$(INCLUDES),-I$(dir))
-          CXXFLAGS	:= $(CFLAGS) -std=c++17 -D__SWITCH__ -DSDLSWITCH
-          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections $(foreach dir,$(LIBDIRS),-L$(dir))
-
-          CPPFILES	:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.cpp))
-          CFILES		:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.c))
-          OFILES		:= $(notdir $(CPPFILES:.cpp=.o) $(CFILES:.c=.o))
-
-          VPATH		:= $(SOURCES)
-
-          all: $(TARGET).nro
-
-          $(TARGET).nro: $(TARGET).elf
-          	$(ELF2NRO) $< $@
-
-          $(TARGET).elf: $(OFILES)
-          	$(LD) $(LDFLAGS) $(OFILES) $(LIBS) -o $@
-          	$(STRIP) -s $@
-
-          %.o: %.cpp
-          	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-          %.o: %.c
-          	$(CC) $(CFLAGS) -c $< -o $@
-
-          clean:
-          	rm -f *.o $(TARGET).elf $(TARGET).nro
-          MAKEOFF
-
-          make -f Makefile.switch
-
-      - name: Organize Game Folder Structure
+      - name: Package Game with All Resources
         run: |
-          mkdir -p switch_release/open_alice
-          cp open_alice.nro switch_release/open_alice/
-          [ -d "sprites" ] && cp -r sprites switch_release/open_alice/
-          [ -d "music" ] && cp -r music switch_release/open_alice/
-          [ -d "saves" ] && cp -r saves switch_release/open_alice/
-          [ -d "code" ] && cp -r code switch_release/open_alice/
-          ls -la switch_release/open_alice/
+          mkdir -p open_alice_release
+          
+          # Copilar ejecutable
+          cp build_ubuntu_20/alice_game open_alice_release/
+          
+          # Copiar todas las carpetas multimedia y de datos necesarias
+          [ -d "sprites" ] && cp -r sprites open_alice_release/
+          [ -d "music" ] && cp -r music open_alice_release/
+          [ -d "saves" ] && cp -r saves open_alice_release/
+          
+          # Crear un archivo ZIP con todo el contenido
+          apt-get install -y zip
+          zip -r OpenAlice-Linux-Package.zip open_alice_release/
+          
+          mkdir -p final_output
+          mv OpenAlice-Linux-Package.zip final_output/
+          ls -la final_output/
 
-      - name: Upload Switch NRO Package
+      - name: Upload Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Switch-Native
-          path: switch_release/
+          name: OpenAlice-Complete-Package
+          path: final_output/
           if-no-files-found: error
