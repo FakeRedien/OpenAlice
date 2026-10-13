@@ -25,16 +25,19 @@ jobs:
       - name: Build Nintendo Switch NRO
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:$PATH
-          make -f build_ubuntu_20/Makefile || true
+          make -f build_ubuntu_20/Makefile || make || true
+          echo "=== ARCHIVOS RECIENTES EN EL REPOSITORIO ==="
+          find . -maxdepth 3 -mmin -5 -not -path '*/.*'
 
-      - name: Prepare Artifacts Directory
-        run: |
-          mkdir -p output_nro
-          find . -maxdepth 4 -type f \( -iname "*.nro" -o -iname "*.elf" \) -exec cp {} output_nro/ \;
-
-      - name: Upload NRO Artifact
+      - name: Upload Workspace Files as Debug Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Switch
-          path: output_nro/
-          if-no-files-found: warn
+          name: OpenAlice-Debug
+          path: |
+            *.nro
+            *.elf
+            *.nacp
+            */*.nro
+            */*.elf
+            build*/**/*
+          if-no-files-found: ignore
