@@ -10,21 +10,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup devKitPro
-        uses: devkitPro/setup-devkitpro-action@v1
-
-      - name: Install dependencies
+      - name: Install dependencies via pacman
         run: |
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
+          export PATH=/opt/devkitpro/pacman/bin:$PATH
+          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
 
       - name: Build Nintendo Switch NRO
         run: |
-          source /etc/profile.d/devkit-env.sh
+          export PATH=/opt/devkitpro/devkitA64/bin:$PATH
           make -f build_ubuntu_20/Makefile || true
           find . -name "*.nro"
 
