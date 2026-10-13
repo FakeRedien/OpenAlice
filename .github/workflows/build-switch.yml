@@ -17,13 +17,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install host and switch dependencies
+      - name: Install dependencies and SFML
         run: |
-          apt-get update && apt-get install -y g++ build-essential wget unzip || true
+          apt-get update && apt-get install -y g++ build-essential wget unzip libsfml-dev || true
           ln -sf /usr/bin/g++ /usr/bin/g++-8
           ln -sf /usr/bin/gcc /usr/bin/gcc-8
           export PATH=/opt/devkitpro/pacman/bin:$PATH
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
+          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf switch-sfml || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || true
 
       - name: Build inside build_ubuntu_20
         run: |
