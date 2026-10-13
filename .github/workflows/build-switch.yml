@@ -17,10 +17,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Switch Dependencies
+      - name: Install Switch Dependencies and SFML Port
         run: |
           export PATH=/opt/devkitpro/pacman/bin:$PATH
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || true
+          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer switch-sfml || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer switch-sfml || true
 
       - name: Create Switch Makefile and Build
         run: |
@@ -29,8 +29,9 @@ jobs:
           cat << 'MAKEOFF' > Makefile.switch
           TARGET		:= open_alice
           SOURCES		:= code code/screens code/screens/subscreens code/tests
-          INCLUDES	:= code /opt/devkitpro/libnx/include
-          LIBS		:= -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
+          INCLUDES	:= code /opt/devkitpro/libnx/include /opt/devkitpro/portlibs/switch/include
+          LIBS		:= -lsfml-graphics -lsfml-window -lsfml-system -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
+          LIBDIRS		:= /opt/devkitpro/portlibs/switch/lib
 
           PREFIX		:= aarch64-none-elf-
           CC		:= $(PREFIX)gcc
@@ -43,7 +44,7 @@ jobs:
 
           CFLAGS		:= -g -Wall -O3 -ffunction-sections $(ARCH) $(foreach dir,$(INCLUDES),-I$(dir))
           CXXFLAGS	:= $(CFLAGS) -std=c++17 -D__SWITCH__ -DSDLSWITCH
-          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections
+          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections $(foreach dir,$(LIBDIRS),-L$(dir))
 
           CPPFILES	:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.cpp))
           CFILES		:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.c))
@@ -74,19 +75,12 @@ jobs:
 
       - name: Organize Game Folder Structure
         run: |
-          # Crear la carpeta principal del juego que irá dentro de switch/ en la SD
           mkdir -p switch_release/open_alice
-          
-          # Copiar el archivo ejecutable .nro
           cp open_alice.nro switch_release/open_alice/
-          
-          # Copiar todas las carpetas de recursos necesarias (sprites, music, saves, etc.)
           [ -d "sprites" ] && cp -r sprites switch_release/open_alice/
           [ -d "music" ] && cp -r music switch_release/open_alice/
           [ -d "saves" ] && cp -r saves switch_release/open_alice/
           [ -d "code" ] && cp -r code switch_release/open_alice/
-          
-          # Listar contenido para verificar
           ls -la switch_release/open_alice/
 
       - name: Upload Complete Switch Game Artifact
