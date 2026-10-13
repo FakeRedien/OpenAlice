@@ -22,32 +22,23 @@ jobs:
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf || true
 
-      - name: Compile for Nintendo Switch
+      - name: Compile and Show Errors
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:$PATH
           cd build_ubuntu_20
           
-          # Configurar variables de compilación para devKitPro A64
-          export CXX=aarch64-none-elf-g++
-          export CC=aarch64-none-elf-gcc
-          export LD=aarch64-none-elf-g++
+          # Limpiar compilaciones anteriores
+          make clean || true
           
-          # Intentar compilar los objetos con flags de libnx
-          make CXX=aarch64-none-elf-g++ CC=aarch64-none-elf-gcc CXXFLAGS="-O3 -g -Wall -Wextra -std=c++17 -march=armv8-a+crc+crypto -mtune=cortex-a57 -ftree-vectorize -fPIE -I/opt/devkitpro/libnx/include" || true
-          
-          # Generar NRO si existe un ELF válido
-          mkdir -p ../final_output
-          if [ -f "alice_game" ]; then
-            # Si el binario generado es ELF de ARM64, lo convertimos directamente
-            aarch64-none-elf-strip alice_game -o ../final_output/open_alice.elf || cp alice_game ../final_output/open_alice.elf
-            elf2nro ../final_output/open_alice.elf ../final_output/open_alice.nro || true
-          fi
-          
-          ls -la ../final_output/
+          # Intentar compilar mostrando la salida completa para depurar
+          make CXX=aarch64-none-elf-g++ CC=aarch64-none-elf-gcc
 
-      - name: Upload NRO Artifact
+      - name: Upload NRO Artifact if exists
         uses: actions/upload-artifact@v4
         with:
           name: OpenAlice-Switch
-          path: final_output/
+          path: |
+            build_ubuntu_20/*.nro
+            build_ubuntu_20/*.elf
+            build_ubuntu_20/alice_game
           if-no-files-found: warn
