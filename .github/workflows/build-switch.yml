@@ -22,22 +22,21 @@ jobs:
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
 
-      - name: Inspect Makefile and Build
+      - name: Build inside build_ubuntu_20
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:$PATH
-          echo "=== CONTENIDO DEL MAKEFILE ==="
-          cat build_ubuntu_20/Makefile
-          echo "=== EJECUTANDO MAKE ==="
-          make -f build_ubuntu_20/Makefile || make || true
-          echo "=== BUSCANDO ARCHIVOS GENERADOS ==="
-          find . -maxdepth 4 -not -path '*/.*'
+          cd build_ubuntu_20
+          make
 
-      - name: Upload All Workspace Files as Debug
+      - name: Prepare Artifacts Directory
+        run: |
+          mkdir -p output_nro
+          find . -name "*.nro" -exec cp {} output_nro/ \;
+          find . -name "*.elf" -exec cp {} output_nro/ \;
+
+      - name: Upload NRO Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Debug-Files
-          path: |
-            *
-            */*
-            */*/*
-          if-no-files-found: ignore
+          name: OpenAlice-Switch
+          path: output_nro/
+          if-no-files-found: warn
