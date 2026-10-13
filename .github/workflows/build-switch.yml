@@ -22,22 +22,22 @@ jobs:
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf
 
-      - name: Build Nintendo Switch NRO
+      - name: Inspect Makefile and Build
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:$PATH
+          echo "=== CONTENIDO DEL MAKEFILE ==="
+          cat build_ubuntu_20/Makefile
+          echo "=== EJECUTANDO MAKE ==="
           make -f build_ubuntu_20/Makefile || make || true
-          echo "=== ARCHIVOS RECIENTES EN EL REPOSITORIO ==="
-          find . -maxdepth 3 -mmin -5 -not -path '*/.*'
+          echo "=== BUSCANDO ARCHIVOS GENERADOS ==="
+          find . -maxdepth 4 -not -path '*/.*'
 
-      - name: Upload Workspace Files as Debug Artifact
+      - name: Upload All Workspace Files as Debug
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAlice-Debug
+          name: OpenAlice-Debug-Files
           path: |
-            *.nro
-            *.elf
-            *.nacp
-            */*.nro
-            */*.elf
-            build*/**/*
+            *
+            */*
+            */*/*
           if-no-files-found: ignore
