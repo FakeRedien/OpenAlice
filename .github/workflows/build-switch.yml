@@ -17,10 +17,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Switch Dependencies and SFML Port
+      - name: Install Switch Dependencies and SFML Headers
         run: |
           export PATH=/opt/devkitpro/pacman/bin:$PATH
-          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer switch-sfml || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer switch-sfml || true
+          dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_ttf switch-sdl2_mixer || true
+          
+          # Descargar los headers oficiales de SFML 2.5.1 directamente para asegurar compatibilidad de rutas
+          apt-get update && apt-get install -y wget unzip
+          wget -q https://github.com/SFML/SFML/archive/refs/tags/2.5.1.zip -O sfml.zip
+          unzip -q sfml.zip
+          mkdir -p sfml_include
+          cp -r SFML-2.5.1/include/* sfml_include/
 
       - name: Create Switch Makefile and Build
         run: |
@@ -29,9 +36,8 @@ jobs:
           cat << 'MAKEOFF' > Makefile.switch
           TARGET		:= open_alice
           SOURCES		:= code code/screens code/screens/subscreens code/tests
-          INCLUDES	:= code /opt/devkitpro/libnx/include /opt/devkitpro/portlibs/switch/include
-          LIBS		:= -lsfml-graphics -lsfml-window -lsfml-system -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
-          LIBDIRS		:= /opt/devkitpro/portlibs/switch/lib
+          INCLUDES	:= code sfml_include /opt/devkitpro/libnx/include
+          LIBS		:= -lswitch-sdl2_image -lswitch-sdl2_ttf -lswitch-sdl2_mixer -lswitch-sdl2 -lEGL -lglapi -ldamagent -lnx -lm
 
           PREFIX		:= aarch64-none-elf-
           CC		:= $(PREFIX)gcc
@@ -42,9 +48,10 @@ jobs:
 
           ARCH		:= -march=armv8-a+crc+crypto -mtune=cortex-a57 -ftree-vectorize -fPIE
 
+          # Definimos banderas para compilar la lógica de clases omitiendo la creación de contexto gráfico pesado de PC en Switch
           CFLAGS		:= -g -Wall -O3 -ffunction-sections $(ARCH) $(foreach dir,$(INCLUDES),-I$(dir))
-          CXXFLAGS	:= $(CFLAGS) -std=c++17 -D__SWITCH__ -DSDLSWITCH
-          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections $(foreach dir,$(LIBDIRS),-L$(dir))
+          CXXFLAGS	:= $(CFLAGS) -std=c++17 -D__SWITCH__ -DSDLSWITCH -DNO_SFML_SYSTEM
+          LDFLAGS		:= -specs=/opt/devkitpro/libnx/switch.specs -g $(ARCH) -Wl,--gc-sections
 
           CPPFILES	:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.cpp))
           CFILES		:= $(foreach dir,$(SOURCES),$(wildcard $(dir)/*.c))
