@@ -25,16 +25,20 @@ jobs:
           export PATH=/opt/devkitpro/pacman/bin:$PATH
           dkp-pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf switch-sfml || pacman -Syu --noconfirm switch-dev libnx switch-sdl2 switch-sdl2_image switch-sdl2_mixer switch-sdl2_ttf || true
 
-      - name: Build inside build_ubuntu_20
+      - name: Build inside build_ubuntu_20 with target switch
         run: |
           export PATH=/opt/devkitpro/devkitA64/bin:$PATH
           cd build_ubuntu_20
-          make
+          make switch || make platform=switch || make
 
-      - name: Collect all NRO and ELF files
+      - name: Find and Collect Executables
         run: |
           mkdir -p final_output
-          find . -type f \( -name "*.nro" -o -name "*.elf" \) -exec cp {} final_output/ \;
+          echo "=== TODOS LOS ARCHIVOS CREADOS RECIENTEMENTE ==="
+          find . -maxdepth 4 -mmin -10 -not -path '*/.*'
+          
+          # Copiar cualquier archivo ejecutable o relevante
+          find . -type f \( -name "*.nro" -o -name "*.elf" -o -name "*.nacp" -o -name "openalice*" \) -exec cp {} final_output/ \;
           ls -la final_output/
 
       - name: Upload NRO Artifact
